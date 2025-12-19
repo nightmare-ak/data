@@ -10,10 +10,14 @@ export async function verifyWithGemini(
   description: string
 ): Promise<VerificationResult> {
   if (!ai) {
-    if (!process.env.API_KEY) {
-      throw new Error("Missing GEMINI_API_KEY environment variable");
+    const envKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    const storedKey = localStorage.getItem('gemini_api_key');
+    const apiKey = envKey || storedKey;
+
+    if (!apiKey) {
+      throw new Error("Missing GEMINI_API_KEY environment variable. Please configure your API key.");
     }
-    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    ai = new GoogleGenAI({ apiKey });
   }
 
   // Fix: Used specific version 001 to resolve 404 not found error

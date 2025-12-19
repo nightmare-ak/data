@@ -1,7 +1,7 @@
 
 import React, { useState, useRef } from 'react';
-import { 
-  Camera, Video, Send, ShieldAlert, Loader2, CheckCircle2, 
+import {
+  Camera, Video, Send, ShieldAlert, Loader2, CheckCircle2,
   MapPin, ShieldCheck, Lock, RefreshCw, WifiOff, AlertTriangle
 } from 'lucide-react';
 import { verifyWithGemini } from '../services/geminiService';
@@ -9,6 +9,7 @@ import { reportService } from '../services/reportService';
 import { syncService } from '../services/syncService';
 import { authService } from '../services/authService';
 import { Report, MediaType } from '../types';
+import { ApiKeyModal } from './ApiKeyModal';
 
 interface Props {
   onSuccess: () => void;
@@ -22,9 +23,10 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
-  
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleMediaClick = (type: MediaType) => {
@@ -67,14 +69,14 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
 
     if (!navigator.onLine) {
       // Fix: Added userId to offline cache payload for complete report recreation on sync
-      syncService.saveOffline({ 
-        media, 
-        description, 
-        location, 
+      syncService.saveOffline({
+        media,
+        description,
+        location,
         mediaType,
         userId: user.id,
         userEmail: user.email,
-        userDisplayName: user.displayName 
+        userDisplayName: user.displayName
       });
       setSuccess(true);
       setTimeout(() => onSuccess(), 2000);
@@ -112,7 +114,11 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
       setTimeout(() => onSuccess(), 2000);
 
     } catch (err: any) {
-      setError(err.message || "An error occurred during verification.");
+      const msg = err.message || "An error occurred during verification.";
+      if (msg.includes("Missing GEMINI_API_KEY")) {
+        setShowApiKeyModal(true);
+      }
+      setError(msg);
     } finally {
       setIsVerifying(false);
     }
@@ -128,7 +134,7 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
           {!navigator.onLine ? "Cached Locally" : "Verified Secure"}
         </h2>
         <p className="text-slate-400 max-w-xs">
-          {!navigator.onLine 
+          {!navigator.onLine
             ? "Your report will be transmitted to the verification network automatically when you reconnect."
             : "Guardian Protocol has verified your report. It is now visible to the community."}
         </p>
@@ -160,7 +166,7 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
           <div className="space-y-4">
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] ml-2">Evidence Capture</label>
             <div className="grid grid-cols-2 gap-4">
-              <button 
+              <button
                 type="button"
                 onClick={() => handleMediaClick('image')}
                 className="group relative aspect-square rounded-[2rem] bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 bouncy"
@@ -170,7 +176,7 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
                 </div>
                 <span className="text-xs font-bold text-slate-300">Photo</span>
               </button>
-              <button 
+              <button
                 type="button"
                 onClick={() => handleMediaClick('video')}
                 className="group relative aspect-square rounded-[2rem] bg-white/5 border border-white/10 hover:bg-white/10 transition-all flex flex-col items-center justify-center gap-3 bouncy"
@@ -181,11 +187,11 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
                 <span className="text-xs font-bold text-slate-300">Video</span>
               </button>
             </div>
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept={mediaType === 'image' ? 'image/*' : 'video/*'} 
+            <input
+              type="file"
+              ref={fileInputRef}
+              className="hidden"
+              accept={mediaType === 'image' ? 'image/*' : 'video/*'}
               onChange={handleFileChange}
             />
           </div>
@@ -197,7 +203,7 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
               ) : (
                 <video src={media} className="w-full h-full object-cover" />
               )}
-              
+
               <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center text-white p-8 text-center animate-in fade-in">
                 <ShieldCheck className="w-12 h-12 text-blue-400 mb-4 animate-pulse" />
                 <p className="font-black text-xl mb-2 tracking-tight uppercase tracking-widest">Privacy Guard Active</p>
@@ -218,18 +224,17 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
                 type="button"
                 onClick={fetchLocation}
                 disabled={isLocating}
-                className={`w-full py-5 rounded-2xl border flex items-center justify-center gap-3 font-black transition-all group ${
-                  location 
-                  ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-400' 
+                className={`w-full py-5 rounded-2xl border flex items-center justify-center gap-3 font-black transition-all group ${location
+                  ? 'border-emerald-500/30 bg-emerald-500/5 text-emerald-400'
                   : 'border-white/5 bg-white/5 text-slate-400 hover:bg-white/10'
-                }`}
+                  }`}
               >
                 {isLocating ? <RefreshCw className="w-5 h-5 animate-spin" /> : <MapPin className={`w-5 h-5 ${location ? 'text-emerald-400' : 'group-hover:text-red-500'}`} />}
                 <span className="uppercase tracking-widest text-xs">
                   {isLocating ? 'Capturing Coordinates...' : location ? 'GPS Secured' : 'Lock My Location'}
                 </span>
               </button>
-              
+
               <textarea
                 required
                 value={description}
@@ -250,11 +255,10 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
           <button
             type="submit"
             disabled={!media || !description || isVerifying || !location}
-            className={`w-full py-6 rounded-3xl flex items-center justify-center gap-4 font-black text-lg tracking-tight shadow-2xl transition-all bouncy ${
-              isVerifying 
-              ? 'bg-slate-900 text-slate-600 cursor-not-allowed' 
+            className={`w-full py-6 rounded-3xl flex items-center justify-center gap-4 font-black text-lg tracking-tight shadow-2xl transition-all bouncy ${isVerifying
+              ? 'bg-slate-900 text-slate-600 cursor-not-allowed'
               : 'bg-gradient-to-r from-red-600 to-red-700 text-white hover:from-red-500 hover:to-red-600 shadow-red-900/20'
-            }`}
+              }`}
           >
             {isVerifying ? (
               <><Loader2 className="w-6 h-6 animate-spin" />AI VALIDATION...</>
@@ -264,6 +268,7 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
           </button>
         </form>
       </div>
+      <ApiKeyModal isOpen={showApiKeyModal} onClose={() => setShowApiKeyModal(false)} onSave={() => { setShowApiKeyModal(false); setError(null); }} />
     </div>
   );
 };
