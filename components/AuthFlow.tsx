@@ -24,14 +24,14 @@ export const AuthFlow: React.FC<Props> = ({ onLoginSuccess }) => {
 
     try {
       if (isLogin) {
-        const user = authService.signIn(email, password);
+        const user = await authService.signIn(email, password);
         onLoginSuccess(user);
       } else {
         if (password.length < 6) throw new Error("Password must be at least 6 characters.");
         if (password !== confirmPassword) throw new Error("Passwords do not match.");
         if (!name) throw new Error("Display name is required.");
-        
-        const user = authService.signUp(email, password, name);
+
+        const user = await authService.signUp(email, password, name);
         onLoginSuccess(user);
       }
     } catch (err: any) {
@@ -41,14 +41,16 @@ export const AuthFlow: React.FC<Props> = ({ onLoginSuccess }) => {
     }
   };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleLogin = async () => {
     setLoading(true);
-    // Simulation of Google Auth popup
-    setTimeout(() => {
-      const user = authService.loginWithGoogle(email || "anon@gmail.com", name || "Google Guardian");
+    try {
+      const user = await authService.loginWithGoogle();
       onLoginSuccess(user);
+    } catch (error: any) {
+      setError(error.message);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   return (
@@ -69,13 +71,13 @@ export const AuthFlow: React.FC<Props> = ({ onLoginSuccess }) => {
 
         {/* Tab Switcher */}
         <div className="flex bg-slate-900/50 p-1 rounded-2xl border border-white/5">
-          <button 
+          <button
             onClick={() => setIsLogin(true)}
             className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${isLogin ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
           >
             <LogIn className="w-4 h-4" /> Log In
           </button>
-          <button 
+          <button
             onClick={() => setIsLogin(false)}
             className={`flex-1 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${!isLogin ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
           >
@@ -87,8 +89,8 @@ export const AuthFlow: React.FC<Props> = ({ onLoginSuccess }) => {
           {!isLogin && (
             <div className="group relative">
               <User className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5 group-focus-within:text-red-500 transition-colors" />
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Full Name"
                 required
                 value={name}
@@ -97,11 +99,11 @@ export const AuthFlow: React.FC<Props> = ({ onLoginSuccess }) => {
               />
             </div>
           )}
-          
+
           <div className="group relative">
             <Mail className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5 group-focus-within:text-red-500 transition-colors" />
-            <input 
-              type="email" 
+            <input
+              type="email"
               placeholder="Email Address"
               required
               value={email}
@@ -112,8 +114,8 @@ export const AuthFlow: React.FC<Props> = ({ onLoginSuccess }) => {
 
           <div className="group relative">
             <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5 group-focus-within:text-red-500 transition-colors" />
-            <input 
-              type="password" 
+            <input
+              type="password"
               placeholder="Password"
               required
               value={password}
@@ -125,8 +127,8 @@ export const AuthFlow: React.FC<Props> = ({ onLoginSuccess }) => {
           {!isLogin && (
             <div className="group relative">
               <Lock className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 w-5 h-5 group-focus-within:text-red-500 transition-colors" />
-              <input 
-                type="password" 
+              <input
+                type="password"
                 placeholder="Confirm Password"
                 required
                 value={confirmPassword}
@@ -142,8 +144,8 @@ export const AuthFlow: React.FC<Props> = ({ onLoginSuccess }) => {
             </div>
           )}
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             disabled={loading}
             className="w-full py-4 bg-gradient-to-r from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white font-black rounded-2xl shadow-xl shadow-red-900/20 transition-all active:scale-95 flex items-center justify-center gap-2 uppercase text-[10px] tracking-widest disabled:opacity-50"
           >
@@ -156,7 +158,7 @@ export const AuthFlow: React.FC<Props> = ({ onLoginSuccess }) => {
           <div className="relative flex justify-center text-[10px] uppercase font-bold tracking-widest"><span className="bg-slate-950 px-4 text-slate-600">Secure SSO</span></div>
         </div>
 
-        <button 
+        <button
           onClick={handleGoogleLogin}
           className="w-full py-4 bg-white/5 border border-white/10 hover:bg-white/10 text-white font-bold rounded-2xl transition-all flex items-center justify-center gap-3 text-xs bouncy"
         >

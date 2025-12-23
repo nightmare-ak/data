@@ -24,8 +24,8 @@ export const FindHelpTab: React.FC<Props> = ({ onNavigate }) => {
     // Forcing 112 for demo purposes as requested
     setEmergencyPhone('112');
 
-    const loadNearbyFacilities = () => {
-      const data = facilityService.getFacilities();
+    const loadNearbyFacilities = async () => {
+      const data = await facilityService.getFacilities();
 
       navigator.geolocation.getCurrentPosition((pos) => {
         const uLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };

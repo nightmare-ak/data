@@ -38,7 +38,7 @@ export const syncService = {
       try {
         // Re-verify with Gemini now that we are online
         const verification = await verifyWithGemini(item.media, item.description);
-        
+
         if (verification.verified) {
           // Fix: Ensure all required Report fields are populated from the cached item
           const report: Report = {
@@ -56,7 +56,7 @@ export const syncService = {
             summary: verification.summary,
             timestamp: item.timestamp
           };
-          reportService.addReport(report);
+          await reportService.addReport(report);
           results.push(item.tempId);
         }
       } catch (error) {
@@ -71,7 +71,7 @@ export const syncService = {
     } else {
       syncService.clearPending();
     }
-    
+
     onProgress?.("Sync complete.");
   }
 };

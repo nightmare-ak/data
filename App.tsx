@@ -8,9 +8,10 @@ import { Dashboard } from './components/Dashboard';
 import { AdminPanel } from './components/AdminPanel';
 import { AuthorityPanel } from './components/AuthorityPanel';
 import { AuthFlow } from './components/AuthFlow';
+import { auth } from './services/firebaseConfig';
 import { reportService } from './services/reportService';
 import { syncService } from './services/syncService';
-import { authService } from './services/authService';
+import { authService, mapUser } from './services/authService';
 import { Report, UserProfile } from './types';
 import { Map, Camera, Hospital, LayoutDashboard, Loader2 } from 'lucide-react';
 
@@ -23,9 +24,25 @@ const App: React.FC = () => {
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
+      if (firebaseUser) {
+        setUser(mapUser(firebaseUser));
+      } else {
+        setUser(null);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
     if (!user) return;
 
-    setReports(reportService.getVerifiedReports());
+    const fetchReports = async () => {
+      const verified = await reportService.getVerifiedReports();
+      setReports(verified);
+    };
+    fetchReports();
+
     setPendingSyncCount(syncService.getPending().length);
 
     if ("geolocation" in navigator) {
@@ -38,7 +55,8 @@ const App: React.FC = () => {
       if (navigator.onLine && user) {
         await syncService.syncPending((msg) => setSyncMessage(msg));
         setPendingSyncCount(syncService.getPending().length);
-        setReports(reportService.getVerifiedReports());
+        const verified = await reportService.getVerifiedReports();
+        setReports(verified);
         setTimeout(() => setSyncMessage(null), 3000);
       }
     };
@@ -59,10 +77,10 @@ const App: React.FC = () => {
   }
 
   const renderContent = () => {
-    switch(currentTab) {
+    switch (currentTab) {
       case -1: return <Dashboard user={user} onNavigate={setCurrentTab} pendingSyncCount={pendingSyncCount} />;
       case 0: return <ReportMap reports={reports} userLocation={userLocation} currentRole={user.role} />;
-      case 1: return <ReportForm onSuccess={() => { setReports(reportService.getVerifiedReports()); setCurrentTab(0); }} />;
+      case 1: return <ReportForm onSuccess={async () => { setReports(await reportService.getVerifiedReports()); setCurrentTab(0); }} />;
       case 2: return <FindHelpTab onNavigate={setCurrentTab} />;
       case 3: return <AdminPanel currentUser={user} />;
       case 4: return <AuthorityPanel />;
@@ -73,7 +91,7 @@ const App: React.FC = () => {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-950 selection:bg-red-500/20 selection:text-red-200">
       <Header onLogout={handleLogout} />
-      
+
       {syncMessage && (
         <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[5000] glass px-8 py-3 rounded-full flex items-center gap-3 text-xs font-black shadow-[0_20px_60px_rgba(0,0,0,0.5)] animate-bounce border-blue-500/20 text-blue-400 uppercase tracking-widest">
           <Loader2 className="w-4 h-4 animate-spin" />
@@ -92,7 +110,7 @@ const App: React.FC = () => {
           { icon: Camera, label: 'Alert', tab: 1 },
           { icon: Hospital, label: 'Help', tab: 2 }
         ].map(item => (
-          <button 
+          <button
             key={item.tab}
             onClick={() => setCurrentTab(item.tab)}
             className={`flex flex-col items-center gap-1.5 transition-all group relative px-4 ${currentTab === item.tab ? 'text-red-500' : 'text-slate-500 hover:text-slate-200'}`}
@@ -102,7 +120,7 @@ const App: React.FC = () => {
             </div>
             <span className="text-[8px] font-black uppercase tracking-[0.2em]">{item.label}</span>
             {currentTab === item.tab && (
-               <div className="absolute -bottom-1 w-1 h-1 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+              <div className="absolute -bottom-1 w-1 h-1 bg-red-500 rounded-full shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
             )}
           </button>
         ))}

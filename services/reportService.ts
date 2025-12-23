@@ -1,29 +1,57 @@
 
 import { Report } from "../types";
 import { authService } from "./authService";
+import { db } from "./firebaseConfig";
+import { collection, getDocs, addDoc, query, where, orderBy } from "firebase/firestore";
 
-const STORAGE_KEY = 'community_guardian_reports';
+const REPORTS_COLLECTION = 'reports';
+
+// Helper to convert Firestore doc to Report
+const mapDocToReport = (doc: any): Report => ({
+  id: doc.id,
+  ...doc.data()
+});
 
 export const reportService = {
-  getReports: (): Report[] => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : [];
+  // Now async
+  getReports: async (): Promise<Report[]> => {
+    try {
+      const q = query(collection(db, REPORTS_COLLECTION), orderBy("timestamp", "desc"));
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(mapDocToReport);
+    } catch (error) {
+      console.error("Error fetching reports:", error);
+      return [];
+    }
   },
 
-  addReport: (report: Report) => {
-    const reports = reportService.getReports();
-    reports.push(report);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(reports));
+  addReport: async (report: Report): Promise<void> => {
+    // Firestore creates ID, but we have one generated already in createReportTemplate.
+    // We can use it or let Firestore generate one. Storing explicitly for now.
+    const { id, ...reportData } = report;
+    await addDoc(collection(db, REPORTS_COLLECTION), { ...reportData, id });
   },
 
-  getVerifiedReports: (): Report[] => {
-    return reportService.getReports().filter(r => r.status === 'verified');
+  getVerifiedReports: async (): Promise<Report[]> => {
+    try {
+      // Filtering verified on backend
+      const q = query(
+        collection(db, REPORTS_COLLECTION),
+        where("status", "==", "verified")
+      );
+      const snapshot = await getDocs(q);
+      // Sort in memory or add composite index for orderBy timestamp
+      return snapshot.docs.map(mapDocToReport).sort((a, b) => b.timestamp - a.timestamp);
+    } catch (error) {
+      console.error("Error fetching verified reports:", error);
+      return [];
+    }
   },
 
   createReportTemplate: (data: any): Report => {
     const user = authService.getCurrentUser();
     return {
-      id: crypto.randomUUID(),
+      id: crypto.randomUUID(), // Will serve as a reference separate from Doc ID
       userId: user?.id || 'anon',
       userEmail: user?.email || 'anon@guardian.protocol',
       userDisplayName: user?.displayName || 'Anonymous Guardian',
@@ -39,3 +67,5 @@ export const reportService = {
     };
   }
 };
+
+

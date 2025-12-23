@@ -57,13 +57,19 @@ export interface VerificationResult {
   severity: number;
   category: Category;
   summary: string;
+  timeCheck?: 'consistent' | 'inconsistent' | 'uncertain';
 }
 
-export const canAccessAuthorityDashboard = (role: UserRole) => 
+export interface BoundingBox {
+  box_2d: [number, number, number, number]; // [ymin, xmin, ymax, xmax]
+  label: string;
+}
+
+export const canAccessAuthorityDashboard = (role: UserRole) =>
   ['Creator', 'Admin', 'Authority'].includes(role);
 
-export const canViewRealIdentity = (role: UserRole) => 
+export const canViewRealIdentity = (role: UserRole) =>
   ['Creator', 'Admin'].includes(role);
 
-export const canViewClearEvidence = (role: UserRole) => 
+export const canViewClearEvidence = (role: UserRole) =>
   ['Creator', 'Admin', 'Authority'].includes(role);

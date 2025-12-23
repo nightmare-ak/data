@@ -4,12 +4,14 @@ import {
   Camera, Video, Send, ShieldAlert, Loader2, CheckCircle2,
   MapPin, ShieldCheck, Lock, RefreshCw, WifiOff, AlertTriangle
 } from 'lucide-react';
-import { verifyWithGemini } from '../services/geminiService';
+import { verifyWithGemini, detectSensitiveContent } from '../services/geminiService';
+import { SmartImageBlur } from './SmartImageBlur';
 import { reportService } from '../services/reportService';
 import { syncService } from '../services/syncService';
 import { authService } from '../services/authService';
 import { Report, MediaType } from '../types';
 import { ApiKeyModal } from './ApiKeyModal';
+import { MediaCapture } from './MediaCapture';
 
 interface Props {
   onSuccess: () => void;
@@ -26,22 +28,35 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
   const [location, setLocation] = useState<{ lat: number, lng: number } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  // New States for Redaction & Metadata
+  const [boundingBoxes, setBoundingBoxes] = useState<any[]>([]);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [mediaTimestamp, setMediaTimestamp] = useState<string | undefined>(undefined);
+
+
 
   const handleMediaClick = (type: MediaType) => {
     setMediaType(type);
-    fileInputRef.current?.click();
+    setShowCamera(true);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setMedia(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+  const handleCapture = async (dataUrl: string, timestamp: string) => {
+    setMedia(dataUrl);
+    setMediaTimestamp(timestamp);
+    setShowCamera(false);
+
+    if (mediaType === 'image') {
+      setIsAnalyzing(true);
+      try {
+        const boxes = await detectSensitiveContent(dataUrl);
+        setBoundingBoxes(boxes);
+      } catch (err) {
+        console.error("Redaction failed", err);
+      } finally {
+        setIsAnalyzing(false);
+      }
     }
   };
 
@@ -87,7 +102,7 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
     setError(null);
 
     try {
-      const verification = await verifyWithGemini(media, description);
+      const verification = await verifyWithGemini(media, description, mediaTimestamp);
 
       if (!verification.verified) {
         throw new Error("AI Validator: Submission does not contain a clear, verifiable hazard.");
@@ -109,7 +124,7 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
         timestamp: Date.now()
       };
 
-      reportService.addReport(newReport);
+      await reportService.addReport(newReport);
       setSuccess(true);
       setTimeout(() => onSuccess(), 2000);
 
@@ -187,33 +202,34 @@ export const ReportForm: React.FC<Props> = ({ onSuccess }) => {
                 <span className="text-xs font-bold text-slate-300">Video</span>
               </button>
             </div>
-            <input
-              type="file"
-              ref={fileInputRef}
-              className="hidden"
-              accept={mediaType === 'image' ? 'image/*' : 'video/*'}
-              onChange={handleFileChange}
-            />
+            {showCamera && (
+              <MediaCapture
+                mode={mediaType}
+                onCapture={handleCapture}
+                onClose={() => setShowCamera(false)}
+              />
+            )}
           </div>
 
           {media && (
-            <div className="relative aspect-video rounded-[2.5rem] overflow-hidden border border-white/10 group shadow-2xl">
+            <div className="relative aspect-video rounded-[2.5rem] overflow-hidden border border-white/10 group shadow-2xl bg-black">
               {mediaType === 'image' ? (
-                <img src={media} className="w-full h-full object-cover" />
+                <>
+                  <SmartImageBlur
+                    imageUrl={media}
+                    boundingBoxes={boundingBoxes}
+                    className="w-full h-full object-cover"
+                  />
+                  {isAnalyzing && (
+                    <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center animate-in fade-in z-50">
+                      <Loader2 className="w-10 h-10 text-blue-400 animate-spin mb-2" />
+                      <p className="text-blue-400 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">Scanning Biometrics...</p>
+                    </div>
+                  )}
+                </>
               ) : (
-                <video src={media} className="w-full h-full object-cover" />
+                <video src={media} className="w-full h-full object-cover" controls />
               )}
-
-              <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md flex flex-col items-center justify-center text-white p-8 text-center animate-in fade-in">
-                <ShieldCheck className="w-12 h-12 text-blue-400 mb-4 animate-pulse" />
-                <p className="font-black text-xl mb-2 tracking-tight uppercase tracking-widest">Privacy Guard Active</p>
-                <p className="text-slate-400 text-xs leading-relaxed max-w-xs">
-                  Our neural network is blurring faces, IDs, and private details before verification.
-                </p>
-                <div className="mt-6 flex items-center gap-2 bg-blue-500/20 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest text-blue-400 border border-blue-500/20">
-                  <Lock className="w-3 h-3" /> Encrypted Pipeline
-                </div>
-              </div>
             </div>
           )}
 
