@@ -11,7 +11,7 @@ export async function verifyWithGemini(
   timestamp?: string
 ): Promise<VerificationResult> {
   if (!ai) {
-    const envKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    const envKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY;
     const storedKey = localStorage.getItem('gemini_api_key');
     const apiKey = envKey || storedKey;
 
@@ -110,7 +110,7 @@ export async function detectSensitiveContent(
   imageBase64: string
 ): Promise<BoundingBox[]> {
   if (!ai) {
-    const envKey = process.env.API_KEY || process.env.GEMINI_API_KEY;
+    const envKey = import.meta.env.VITE_GEMINI_API_KEY || process.env.API_KEY || process.env.GEMINI_API_KEY;
     const storedKey = localStorage.getItem('gemini_api_key');
     const apiKey = envKey || storedKey;
 
